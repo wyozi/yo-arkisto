@@ -1,0 +1,21 @@
+{
+  "name": "yo-arkisto",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": "0.10.x"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "express": "~4.12.1",
+    "glob": "~4.4.1",
+    "compression": "~1.4.1",
+    "node-wolfram": "0.0.1"
+  }
+}

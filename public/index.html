@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<style type="text/css">
+	body {
+		overflow-x: hidden;
+	}
+
+	#content {
+		position: absolute;
+		left: 0; top: 0; right: 0; bottom: 0;
+
+		display: flex;
+	}
+	#menu {
+		flex: none;
+		width: 250px;
+		background-color: lightgray;
+
+		display: flex;
+		flex-direction: column;
+	}
+	#examlist {
+		overflow-y: auto;
+	}
+
+	#tools {
+		flex: none;
+		height: 100px;
+		padding-top: 5px;
+
+		display: flex;
+		flex-direction: column;
+	}
+
+	.panel {
+		flex: 1;
+	}
+
+	#sidebartoggle {
+		width: 6px;
+		background-color: gray;
+		cursor: pointer;
+
+		background: repeating-linear-gradient(
+			45deg,
+			rgb(249, 105, 14),
+			rgb(249, 105, 14) 10px,
+			rgb(235, 149, 50) 10px,
+			rgb(235, 149, 50) 20px
+		);
+	}
+
+	.handle {
+		width: 5px;
+		text-align: center;
+		color: white;
+
+		background: repeating-linear-gradient(
+			45deg,
+			#606dbc,
+			#606dbc 10px,
+			#465298 10px,
+			#465298 20px
+		);
+
+		transition: all ease-in 0.1s;
+	}
+
+	#questions, #answers {
+		background-size: 0% 100%;
+	}
+	#questions:before, #answers:before {
+		content: '';
+		position: absolute;
+
+		background-image: linear-gradient(to bottom, rgba(255, 0, 0, 0.5) 0%, rgba(255, 0, 0, 0.5) 100%), url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAMSURBVBhXY/j//z8ABf4C/qc1gYQAAAAASUVORK5CYII=);
+
+		background-size: inherit;
+		background-repeat: no-repeat;
+
+		width: calc(50% - 150px);
+		height: 4px;
+	}
+
+	#wolfram-history {
+		margin-top: 10px;
+		padding: 5px;
+		background-color: rgba(127, 127, 255, 0.2);
+	}
+	#wolfram-history > div:not(:first-child) {
+		border-top: 1px solid black;
+		margin-top: 5px;
+	}
+
+	#wolfram-history > div {
+		height: 25px;
+		clear: both;
+	}
+
+	#wolfram-history span.query {
+		float: left;
+		background-color: rgba(127, 255, 255, 0.2);
+
+		padding: 3px;
+		padding-right: 20px;
+	}
+
+	#wolfram-history span.result {
+		float: right;
+		background-color: rgba(255, 127, 127, 0.2);
+
+		padding: 3px;
+		padding-left: 20px;
+	}
+
+	div.button {
+		color: blue;
+		text-align: center;
+		height: 30px;
+		cursor: pointer;
+	}
+	div.button:hover {
+		background-color: rgba(255, 127, 0, 0.2);
+	}
+	</style>
+	<link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.11.3/themes/ui-lightness/jquery-ui.css">
+</head>
+<body>
+	<div id="content">
+		<div class="menu" id="menu">
+			<div id="examlist"></div>
+			<div id="tools">
+				<div class="button" id="walpha">Wolfram alpha</div>
+			</div>
+		</div>
+		<div id="sidebartoggle"></div>
+		<div class="panel" id="questions" style="overflow-y: auto">
+		</div>
+  		<div class="handle"></div>
+		<div class="panel" id="answers" style="overflow-y: auto">
+		</div>
+	</div>
+	<div id="dialog-wolfram" title="Wolfram alpha" style="display: none">
+		<input id="wolfram-input" style="width: 100%"><br>
+		<div id="wolfram-output"></div>
+		<div id="wolfram-history"></div>
+	</div>
+
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+	<script type="text/javascript" src="https://code.jquery.com/ui/1.11.3/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="https://cdn.rawgit.com/mozilla/pdf.js/gh-pages/build/pdf.js"></script>
+	<script type="text/javascript" src="flexboxdrag.js"></script>
+	<script type="text/javascript">
+		function renderPage(targElement, page) {
+			var canvas = document.createElement("canvas");
+			canvas.style.width = "100%";
+
+			var desiredWidth = 1000;
+			var viewport = page.getViewport(1);
+			var scale = desiredWidth / viewport.width;
+			var scaledViewport = page.getViewport(scale);
+
+			var context = canvas.getContext('2d');
+			canvas.height = scaledViewport.height;
+			canvas.width = scaledViewport.width;
+
+			page.render({canvasContext: context, viewport: scaledViewport});
+
+			var lastMX, lastMY;
+			$(canvas).on("mousemove", function(e) {
+				if (!(e.buttons & 1)) {
+					lastMX = undefined;
+					lastMY = undefined;
+					return;
+				}
+
+				var rect = canvas.getBoundingClientRect(); 
+
+				var relX = (e.clientX-rect.left)/(rect.right-rect.left)*canvas.width;
+				var relY = (e.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height;
+
+				if (lastMX && lastMY) {
+					context.beginPath();
+					context.moveTo(lastMX, lastMY);
+					context.lineTo(relX, relY);
+					
+					context.lineWidth = 4;
+					context.lineCap = 'round';
+					context.strokeStyle = 'rgb(255, 127, 0)';
+
+					context.stroke();
+				}
+
+				lastMX = relX, lastMY = relY;
+			});
+
+			targElement.append(canvas);
+		}
+
+		function createProgressCallback(progbar) {
+			return function(progress) {
+				var percentLoaded = progress.loaded / progress.total;
+				var cssLoaded;
+				if (percentLoaded == 1) {
+					cssLoaded = "0%";
+				}
+				else {
+					cssLoaded = (percentLoaded * 100) + "%";
+				}
+				progbar.css("background-size", cssLoaded + " 100%");
+			};
+		}
+
+		function fetchExam(quesUrl, ansUrl) {
+			$("#questions").empty();
+			PDFJS.getDocument(quesUrl, undefined, undefined, createProgressCallback($("#questions"))).then(function(pdf) {
+				var el = $("#questions");
+
+				for (var i = 1;i <= pdf.numPages; i++) {
+					pdf.getPage(i).then(function(page) {
+						renderPage(el, page);
+					});
+				}
+			});
+
+			$("#answers").empty();
+			PDFJS.getDocument(ansUrl, undefined, undefined, createProgressCallback($("#answers"))).then(function(pdf) {
+				var el = $("#answers");
+
+				for (var i = 1;i <= pdf.numPages; i++) {
+					pdf.getPage(i).then(function(page) {
+						renderPage(el, page);
+					});
+				}
+			});
+		}
+
+		$("#walpha").click(function() {
+			$("#dialog-wolfram").dialog({
+				width: 600,
+				buttons: {
+					Close: function() {
+						$(this).dialog( "close" );
+					}
+				}
+			});
+		});
+		$('#wolfram-input').keypress(function(e) {
+			if (e.keyCode == $.ui.keyCode.ENTER) {
+				$("#wolfram-output").text("Querying..");
+				var query = $("#wolfram-input").val();
+				$.getJSON("api/wolfram", {
+					query: query
+				}, function(data) {
+					if (data.err) {
+						$("#wolfram-output").text("Query error: " + data.err);
+					}
+					else {
+						$("#wolfram-output").text(data.plainResult);
+
+						var historyEl = $("<div>")
+							.append($("<span>").addClass("query").text(query))
+							.append($("<span>").addClass("result").text(data.plainResult));
+						$("#wolfram-history").prepend(historyEl);
+					}
+				});	
+			}
+		});
+
+		$("#sidebartoggle").click(function() {
+			$("#menu").toggle();
+		});
+		$('.handle').drags();
+
+		function setExams(exams) {
+			exams.sort(function(a, b) {
+				var aMatch = a.match(/(\w+)-(\w)(\d\d).?/);
+				var bMatch = b.match(/(\w+)-(\w)(\d\d).?/);
+
+				var subjectComp = aMatch[1].localeCompare(bMatch[1]);
+				if (subjectComp !== 0) {
+					return subjectComp;
+				}
+
+				var yearA = parseInt(aMatch[3]);
+				yearA = (yearA > 20 ? 1900 : 2000) + yearA;
+				var yearB = parseInt(bMatch[3]);
+				yearB = (yearB > 20 ? 1900 : 2000) + yearB;
+
+				var yearComp = yearA - yearB
+				if (yearComp !== 0) {
+					return yearComp;
+				}
+
+				return aMatch[2].localeCompare(bMatch[2]);
+			});
+
+			exams.forEach(function(exam) {
+				var link = $("<div>").addClass("button").text(exam);
+
+				link.on("click", function() {
+					fetchExam("api/exams/" + exam, "api/exams/" + exam + "ratk");
+				});
+
+				$("#examlist").append(link);
+			});
+		}
+		$.getJSON("api/exams", setExams);
+	</script>
+</body>
+</html>
